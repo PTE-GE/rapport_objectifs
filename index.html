@@ -1,0 +1,966 @@
+<!DOCTYPE html><html lang="fr"><head><meta name="x-poe-datastore-behavior" content="local_only"><meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://code.jquery.com https://unpkg.com https://d3js.org https://threejs.org https://cdn.plot.ly https://stackpath.bootstrapcdn.com https://maps.googleapis.com https://cdn.tailwindcss.com https://ajax.googleapis.com https://kit.fontawesome.com https://cdn.datatables.net https://maxcdn.bootstrapcdn.com https://code.highcharts.com https://tako-static-assets-production.s3.amazonaws.com https://www.youtube.com https://fonts.googleapis.com https://fonts.gstatic.com https://pfst.cf2.poecdn.net https://puc.poecdn.net https://i.imgur.com https://wikimedia.org https://*.icons8.com https://*.giphy.com https://picsum.photos https://images.unsplash.com; frame-src 'self' https://www.youtube.com https://trytako.com; child-src 'self'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests; block-all-mixed-content;">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCBA — Rapport d'objectifs énergétiques</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --blue-dark: #1a3a5c;
+    --blue-mid: #2c5f8a;
+    --blue-light: #e8f0f8;
+    --blue-accent: #3b82f6;
+    --orange: #e67e22;
+    --orange-light: #fef3e2;
+    --green: #27ae60;
+    --green-light: #eafaf1;
+    --red: #e74c3c;
+    --red-light: #fdecea;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --white: #ffffff;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.04);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --transition: 0.25s cubic-bezier(0.4,0,0.2,1);
+    --varA-color: #3b82f6;
+    --varB-color: #8b5cf6;
+    --varC-color: #10b981;
+    --pte-color: #0d9488;
+    --pte-light: #ccfbf1;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--gray-50); color:var(--gray-800); font-size:14px; line-height:1.6; }
+
+  .app-header { position:fixed;top:0;left:0;right:0;z-index:100;background:var(--blue-dark);color:var(--white);display:flex;align-items:center;justify-content:space-between;padding:0 24px;height:56px;box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+  .app-header .logo-area { display:flex;align-items:center;gap:14px; }
+  .app-header .logo-area .shield { width:32px;height:32px;background:var(--white);border-radius:4px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:var(--blue-dark); }
+  .app-header .logo-area h1 { font-size:15px;font-weight:600;letter-spacing:0.02em; }
+  .app-header .logo-area h1 span { font-weight:300;opacity:0.8;margin-left:6px; }
+  .header-actions { display:flex;gap:10px;flex-wrap:wrap; }
+  .header-actions button { padding:7px 16px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;display:flex;align-items:center;gap:6px;transition:var(--transition); }
+  .btn-secondary { background:rgba(255,255,255,0.12);color:var(--white);border:1px solid rgba(255,255,255,0.2)!important; }
+  .btn-secondary:hover { background:rgba(255,255,255,0.22); }
+  .btn-primary { background:var(--blue-accent);color:var(--white); }
+  .btn-primary:hover { background:#2563eb; }
+  .btn-export { background:var(--green);color:var(--white); }
+  .btn-export:hover { background:#219a52; }
+  .btn-import-pdf { background:linear-gradient(135deg,#f59e0b,#ef4444);color:var(--white); }
+  .btn-import-pdf:hover { background:linear-gradient(135deg,#d97706,#dc2626); }
+  .btn-import-pte { background:linear-gradient(135deg,#0d9488,#06b6d4);color:var(--white); }
+  .btn-import-pte:hover { background:linear-gradient(135deg,#0f766e,#0891b2); }
+
+  .sidebar { position:fixed;top:56px;left:0;bottom:0;width:260px;background:var(--white);border-right:1px solid var(--gray-200);overflow-y:auto;z-index:50;padding:16px 0; }
+  .sidebar::-webkit-scrollbar { width:4px; }
+  .sidebar::-webkit-scrollbar-thumb { background:var(--gray-300);border-radius:4px; }
+  .sidebar .project-info { padding:12px 20px 16px;border-bottom:1px solid var(--gray-200);margin-bottom:12px; }
+  .sidebar .project-info .label { font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gray-400);font-weight:600;margin-bottom:2px; }
+  .sidebar .project-info .value { font-size:13px;font-weight:600;color:var(--blue-dark); }
+  .sidebar .project-info .sub { font-size:12px;color:var(--gray-500);margin-top:2px; }
+  .sidebar nav { padding:0 8px; }
+  .sidebar nav a { display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:6px;text-decoration:none;color:var(--gray-600);font-size:13px;font-weight:450;transition:var(--transition);margin-bottom:2px; }
+  .sidebar nav a:hover { background:var(--gray-100);color:var(--gray-800); }
+  .sidebar nav a.active { background:var(--blue-light);color:var(--blue-dark);font-weight:600; }
+  .sidebar nav a .nav-icon { width:22px;height:22px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--white);flex-shrink:0; }
+  .nav-icon.a { background:var(--blue-dark); }
+  .nav-icon.b { background:#7c3aed; }
+  .nav-icon.c { background:#0891b2; }
+  .nav-icon.d { background:#059669; }
+  .nav-icon.sc { background:linear-gradient(135deg,#f59e0b,#ef4444); }
+  .nav-icon.e { background:var(--orange); }
+  .nav-icon.f { background:#ec4899; }
+  .nav-icon.g { background:#6366f1; }
+  .sidebar nav a .badge { margin-left:auto;font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;background:var(--orange-light);color:var(--orange); }
+  .sidebar .sidebar-footer { padding:16px 20px;border-top:1px solid var(--gray-200);margin-top:12px;font-size:11px;color:var(--gray-400); }
+
+  .main { margin-left:260px;margin-top:56px;padding:28px 32px 80px;max-width:1080px; }
+
+  .section-card { background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-lg);margin-bottom:20px;box-shadow:var(--shadow-sm);overflow:hidden; }
+  .section-header { display:flex;align-items:center;justify-content:space-between;padding:16px 24px;cursor:pointer;user-select:none;transition:var(--transition); }
+  .section-header:hover { background:var(--gray-50); }
+  .section-header .left { display:flex;align-items:center;gap:14px; }
+  .section-header .section-badge { width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--white);flex-shrink:0; }
+  .section-header .section-title { font-size:15px;font-weight:600;color:var(--gray-800); }
+  .section-header .section-subtitle { font-size:12px;color:var(--gray-400);margin-top:1px; }
+  .section-header .chevron { width:24px;height:24px;display:flex;align-items:center;justify-content:center;transition:transform 0.3s ease;color:var(--gray-400); }
+  .section-card.open .section-header .chevron { transform:rotate(180deg); }
+  .section-body { max-height:0;overflow:hidden;transition:max-height 0.4s cubic-bezier(0.4,0,0.2,1); }
+  .section-card.open .section-body { max-height:20000px; }
+  .section-content { padding:4px 24px 24px; }
+
+  .form-grid { display:grid;grid-template-columns:1fr 1fr;gap:16px 24px; }
+  .form-grid.cols-3 { grid-template-columns:1fr 1fr 1fr; }
+  .form-grid.cols-4 { grid-template-columns:1fr 1fr 1fr 1fr; }
+  .form-grid .full { grid-column:1/-1; }
+  .form-group { display:flex;flex-direction:column;gap:5px; }
+  .form-group label { font-size:12px;font-weight:500;color:var(--gray-600);display:flex;align-items:center;gap:4px; }
+  .form-group label .required { color:var(--red); }
+  .form-group label .source-tag { font-size:9px;font-weight:700;letter-spacing:0.05em;padding:1px 6px;border-radius:4px;margin-left:4px; }
+  .source-pte { background:var(--pte-light);color:var(--pte-color); }
+  .source-cecb { background:#fef3c7;color:#d97706; }
+  .form-group input,.form-group select,.form-group textarea { padding:8px 12px;border:1px solid var(--gray-300);border-radius:6px;font-size:13px;font-family:inherit;color:var(--gray-800);background:var(--white);transition:var(--transition);width:100%; }
+  .form-group input:focus,.form-group select:focus,.form-group textarea:focus { outline:none;border-color:var(--blue-accent);box-shadow:0 0 0 3px rgba(59,130,246,0.12); }
+  .form-group textarea { resize:vertical;min-height:80px; }
+  .form-group input[readonly],.form-group .computed { background:var(--gray-100);color:var(--gray-600);cursor:default; }
+  .form-group input.pte-field { background:#f0fdfa;border-color:#99f6e4; }
+  .form-group input.pte-field:focus { border-color:var(--pte-color);box-shadow:0 0 0 3px rgba(13,148,136,0.12); }
+  .form-group .hint { font-size:11px;color:var(--gray-400); }
+  .form-group .unit { font-size:11px;color:var(--gray-400);font-weight:400; }
+  .form-divider { border:none;border-top:1px solid var(--gray-200);margin:20px 0; }
+  .subsection-title { font-size:13px;font-weight:600;color:var(--blue-dark);margin:20px 0 12px;padding-bottom:6px;border-bottom:2px solid var(--blue-light);display:flex;align-items:center;gap:8px; }
+  .subsection-title .dot { width:6px;height:6px;border-radius:50%;background:var(--blue-mid);flex-shrink:0; }
+  .subsection-title .dot-pte { width:6px;height:6px;border-radius:50%;background:var(--pte-color);flex-shrink:0; }
+
+  .data-table-wrapper { overflow-x:auto;margin:12px 0;border:1px solid var(--gray-200);border-radius:var(--radius); }
+  .data-table { width:100%;border-collapse:collapse;font-size:13px; }
+  .data-table th { background:var(--blue-dark);color:var(--white);padding:10px 14px;text-align:left;font-weight:500;font-size:12px;white-space:nowrap; }
+  .data-table td { padding:8px 14px;border-bottom:1px solid var(--gray-100);vertical-align:middle; }
+  .data-table tr:last-child td { border-bottom:none; }
+  .data-table tbody tr:hover { background:var(--gray-50); }
+  .data-table input,.data-table select { padding:5px 8px;border:1px solid var(--gray-300);border-radius:4px;font-size:12px;font-family:inherit;width:100%;background:var(--white); }
+  .data-table input:focus,.data-table select:focus { outline:none;border-color:var(--blue-accent);box-shadow:0 0 0 2px rgba(59,130,246,0.1); }
+
+  .badge-yes { display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:var(--green-light);color:var(--green); }
+  .badge-no { display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:600;background:var(--red-light);color:var(--red); }
+
+  .collapsible-inner { border:1px solid var(--gray-200);border-radius:var(--radius);margin:12px 0;overflow:hidden; }
+  .collapsible-inner-header { display:flex;align-items:center;justify-content:space-between;padding:10px 16px;cursor:pointer;background:var(--gray-50);font-size:12px;font-weight:500;color:var(--gray-600);transition:var(--transition); }
+  .collapsible-inner-header:hover { background:var(--gray-100); }
+  .collapsible-inner-body { max-height:0;overflow:hidden;transition:max-height 0.35s ease; }
+  .collapsible-inner.open .collapsible-inner-body { max-height:5000px; }
+  .collapsible-inner-content { padding:16px;font-size:13px;color:var(--gray-600);line-height:1.7; }
+
+  .alert-box { padding:12px 16px;border-radius:var(--radius);font-size:13px;margin:12px 0;display:flex;align-items:flex-start;gap:10px; }
+  .alert-box.info { background:var(--blue-light);color:var(--blue-dark);border-left:3px solid var(--blue-accent); }
+  .alert-box.warning { background:var(--orange-light);color:#92400e;border-left:3px solid var(--orange); }
+  .alert-box.success { background:var(--green-light);color:#065f46;border-left:3px solid var(--green); }
+  .alert-box.pte { background:var(--pte-light);color:#134e4a;border-left:3px solid var(--pte-color); }
+
+  .tooltip-trigger { position:relative;cursor:help; }
+  .tooltip-trigger .tooltip-text { display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--gray-800);color:var(--white);padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:20; }
+  .tooltip-trigger:hover .tooltip-text { display:block; }
+
+  .score-overview { display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:24px; }
+  .score-card { border:2px solid var(--gray-200);border-radius:var(--radius-lg);padding:20px;text-align:center;position:relative;transition:var(--transition);background:var(--white); }
+  .score-card:hover { box-shadow:var(--shadow-md); }
+  .score-card.best { border-color:var(--green); }
+  .score-card.best::before { content:'★ RECOMMANDÉE';position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--green);color:var(--white);font-size:9px;font-weight:700;letter-spacing:0.08em;padding:2px 12px;border-radius:10px; }
+  .score-card .sc-label { font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px; }
+  .score-card.variant-a .sc-label { color:var(--varA-color); }
+  .score-card.variant-b .sc-label { color:var(--varB-color); }
+  .score-card.variant-c .sc-label { color:var(--varC-color); }
+  .score-card .sc-score { font-size:48px;font-weight:800;line-height:1;margin-bottom:4px; }
+  .score-card .sc-suffix { font-size:14px;font-weight:400;color:var(--gray-400); }
+  .score-card .sc-bar-container { height:6px;background:var(--gray-200);border-radius:3px;margin-top:12px;overflow:hidden; }
+  .score-card .sc-bar { height:100%;border-radius:3px;transition:width 0.6s ease; }
+
+  .weights-grid { display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;margin:16px 0; }
+  .weight-item { display:flex;flex-direction:column;gap:4px; }
+  .weight-item .wi-header { display:flex;justify-content:space-between;align-items:center; }
+  .weight-item .wi-label { font-size:12px;font-weight:500;color:var(--gray-700);display:flex;align-items:center;gap:6px; }
+  .weight-item .wi-value { font-size:12px;font-weight:700;color:var(--blue-accent);background:var(--blue-light);padding:1px 8px;border-radius:8px;min-width:28px;text-align:center; }
+  .weight-item input[type="range"] { -webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;background:var(--gray-200);outline:none;cursor:pointer; }
+  .weight-item input[type="range"]::-webkit-slider-thumb { -webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--blue-accent);cursor:pointer;box-shadow:0 1px 4px rgba(59,130,246,0.4); }
+  .weight-item input[type="range"]::-moz-range-thumb { width:18px;height:18px;border-radius:50%;background:var(--blue-accent);cursor:pointer;border:none; }
+
+  .chart-area { display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:20px 0;align-items:start; }
+  .chart-container { border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:16px;background:var(--white);text-align:center; }
+  .chart-container .chart-title { font-size:13px;font-weight:600;color:var(--gray-700);margin-bottom:8px; }
+  .chart-legend { display:flex;gap:20px;justify-content:center;margin:12px 0 4px;flex-wrap:wrap; }
+  .chart-legend .legend-item { display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500; }
+  .chart-legend .legend-dot { width:10px;height:10px;border-radius:50%; }
+
+  .score-breakdown { margin-top:20px; }
+  .score-breakdown table { width:100%;border-collapse:collapse;font-size:12px; }
+  .score-breakdown th { background:var(--gray-100);color:var(--gray-700);padding:8px 12px;text-align:center;font-weight:600;border-bottom:2px solid var(--gray-300); }
+  .score-breakdown th:first-child { text-align:left; }
+  .score-breakdown td { padding:8px 12px;text-align:center;border-bottom:1px solid var(--gray-100); }
+  .score-breakdown td:first-child { text-align:left;font-weight:500;color:var(--gray-700); }
+  .score-breakdown .score-cell { font-weight:600;border-radius:4px;padding:3px 8px;display:inline-block;min-width:44px;font-size:12px; }
+  .score-breakdown .weighted-row td { font-weight:700;border-top:2px solid var(--gray-300);background:var(--gray-50); }
+  .score-color-0 { background:#fef2f2;color:#dc2626; }
+  .score-color-1 { background:#fef3c7;color:#d97706; }
+  .score-color-2 { background:#fef9c3;color:#ca8a04; }
+  .score-color-3 { background:#ecfdf5;color:#059669; }
+  .score-color-4 { background:#d1fae5;color:#047857; }
+  .btn-reset { padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--gray-300);background:var(--white);color:var(--gray-500);transition:var(--transition); }
+  .btn-reset:hover { background:var(--gray-100); }
+  .sensitivity-box { background:linear-gradient(135deg,#eff6ff,#f5f3ff);border:1px solid #c7d2fe;border-radius:var(--radius);padding:14px 18px;margin-top:16px;font-size:12px;color:#4338ca;line-height:1.7; }
+  .sensitivity-box strong { color:#3730a3; }
+
+  .import-zone { background:linear-gradient(135deg,#fef3c7 0%,#fde68a 50%,#fbbf24 100%);border:3px dashed #d97706;border-radius:var(--radius-lg);padding:28px 32px;margin-bottom:20px;text-align:center;cursor:pointer;transition:var(--transition);position:relative;overflow:hidden; }
+  .import-zone:hover { border-color:#b45309;background:linear-gradient(135deg,#fde68a 0%,#fbbf24 50%,#f59e0b 100%); }
+  .import-zone.drag-over { border-color:#059669;background:linear-gradient(135deg,#d1fae5 0%,#6ee7b7 50%,#34d399 100%);transform:scale(1.01); }
+  .import-zone .iz-icon { font-size:40px;margin-bottom:8px; }
+  .import-zone .iz-title { font-size:16px;font-weight:700;color:#92400e;margin-bottom:4px; }
+  .import-zone.drag-over .iz-title { color:#065f46; }
+  .import-zone .iz-sub { font-size:12px;color:#a16207;max-width:500px;margin:0 auto; }
+  .import-zone.drag-over .iz-sub { color:#047857; }
+  .import-zone input[type="file"] { display:none; }
+  .import-zone .iz-badge { display:inline-block;margin-top:10px;padding:5px 16px;border-radius:20px;background:rgba(255,255,255,0.7);font-size:12px;font-weight:600;color:#92400e; }
+
+  .import-zone-pte { background:linear-gradient(135deg,#ccfbf1 0%,#99f6e4 50%,#5eead4 100%);border:3px dashed #0d9488;border-radius:var(--radius-lg);padding:24px 32px;margin-bottom:20px;text-align:center;cursor:pointer;transition:var(--transition); }
+  .import-zone-pte:hover { border-color:#0f766e;background:linear-gradient(135deg,#99f6e4 0%,#5eead4 50%,#2dd4bf 100%); }
+  .import-zone-pte .iz-title { font-size:15px;font-weight:700;color:#134e4a;margin-bottom:4px; }
+  .import-zone-pte .iz-sub { font-size:12px;color:#115e59;max-width:500px;margin:0 auto; }
+  .import-zone-pte input[type="file"] { display:none; }
+  .import-zone-pte .iz-badge { display:inline-block;margin-top:8px;padding:4px 14px;border-radius:20px;background:rgba(255,255,255,0.7);font-size:11px;font-weight:600;color:#134e4a; }
+
+  .import-progress { display:none;margin-bottom:20px; }
+  .import-progress.active { display:block; }
+  .import-progress-inner { background:var(--white);border:1px solid var(--gray-200);border-radius:var(--radius-lg);padding:20px 24px;box-shadow:var(--shadow-md); }
+  .import-progress-inner .ip-title { font-size:14px;font-weight:600;color:var(--gray-800);margin-bottom:10px;display:flex;align-items:center;gap:8px; }
+  .ip-bar-track { height:8px;background:var(--gray-200);border-radius:4px;overflow:hidden;margin-bottom:8px; }
+  .ip-bar-fill { height:100%;border-radius:4px;background:linear-gradient(90deg,#f59e0b,#ef4444,#8b5cf6,#3b82f6);background-size:300% 100%;animation:ipAnim 2s linear infinite;width:0%;transition:width 0.4s ease; }
+  @keyframes ipAnim { 0%{background-position:0% 0} 100%{background-position:300% 0} }
+  .ip-status { font-size:12px;color:var(--gray-500); }
+  .ip-log { margin-top:10px;max-height:120px;overflow-y:auto;font-size:11px;font-family:'Courier New',monospace;color:var(--gray-600);background:var(--gray-50);border-radius:6px;padding:10px;border:1px solid var(--gray-200); }
+  .ip-log .log-ok { color:var(--green); }
+  .ip-log .log-warn { color:var(--orange); }
+  .ip-log .log-err { color:var(--red); }
+
+  .review-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;align-items:center;justify-content:center;padding:20px; }
+  .review-overlay.active { display:flex; }
+  .review-panel { background:var(--white);border-radius:16px;max-width:800px;width:100%;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 25px 70px rgba(0,0,0,0.25); }
+  .review-panel-header { padding:20px 24px;border-bottom:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
+  .review-panel-header h2 { font-size:18px;font-weight:700;color:var(--gray-800);display:flex;align-items:center;gap:10px; }
+  .review-panel-header .rp-stats { display:flex;gap:12px; }
+  .review-panel-header .rp-stat { font-size:11px;font-weight:600;padding:3px 10px;border-radius:10px; }
+  .rp-stat.found { background:var(--green-light);color:var(--green); }
+  .rp-stat.missing { background:var(--orange-light);color:var(--orange); }
+  .review-panel-body { flex:1;overflow-y:auto;padding:0; }
+  .review-section { border-bottom:1px solid var(--gray-100); }
+  .review-section-header { padding:12px 24px;background:var(--gray-50);font-size:13px;font-weight:600;color:var(--blue-dark);display:flex;align-items:center;gap:8px;cursor:pointer; }
+  .review-section-header:hover { background:var(--gray-100); }
+  .review-items { padding:0 24px; }
+  .review-item { display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--gray-50);font-size:13px; }
+  .review-item:last-child { border-bottom:none; }
+  .review-item .ri-check { flex-shrink:0; }
+  .review-item .ri-check input { width:16px;height:16px;accent-color:var(--blue-accent);cursor:pointer; }
+  .review-item .ri-field { flex:1;min-width:0; }
+  .review-item .ri-label { font-size:11px;font-weight:600;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.04em; }
+  .review-item .ri-value { font-size:13px;font-weight:500;color:var(--gray-800);word-break:break-word; }
+  .review-item .ri-confidence { flex-shrink:0; }
+  .ri-conf-high { display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;background:#d1fae5;color:#059669; }
+  .ri-conf-medium { display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;background:#fef3c7;color:#d97706; }
+  .ri-conf-low { display:inline-block;padding:2px 8px;border-radius:8px;font-size:10px;font-weight:700;background:#fef2f2;color:#dc2626; }
+  .review-panel-footer { padding:16px 24px;border-top:1px solid var(--gray-200);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:var(--gray-50);border-radius:0 0 16px 16px; }
+  .review-panel-footer .rpf-left { font-size:12px;color:var(--gray-500); }
+  .review-panel-footer .rpf-right { display:flex;gap:10px; }
+  .rpf-right button { padding:9px 22px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:var(--transition); }
+  .rpf-btn-cancel { background:var(--gray-200);color:var(--gray-700); }
+  .rpf-btn-cancel:hover { background:var(--gray-300); }
+  .rpf-btn-apply { background:var(--green);color:var(--white); }
+  .rpf-btn-apply:hover { background:#219a52; }
+  .rpf-btn-selectall { background:var(--blue-light);color:var(--blue-accent); }
+  .rpf-btn-selectall:hover { background:#dbeafe; }
+
+  .signature-block { border:1px solid var(--gray-200);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px;background:var(--gray-50); }
+  .signature-block .sig-title { font-size:12px;font-weight:600;color:var(--blue-dark);margin-bottom:10px; }
+  .signature-row { display:flex;gap:16px;align-items:flex-end; }
+  .signature-row .form-group { flex:1; }
+
+  .progress-bar { height:3px;background:var(--gray-200);position:fixed;top:56px;left:260px;right:0;z-index:60; }
+  .progress-bar .fill { height:100%;background:linear-gradient(90deg,var(--blue-accent),var(--green));width:0%;transition:width 0.3s ease; }
+
+  .modal-generic-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;align-items:center;justify-content:center; }
+  .modal-generic-overlay.active { display:flex; }
+
+  @media (max-width:1024px) { .sidebar{width:220px} .main{margin-left:220px;padding:20px} .chart-area{grid-template-columns:1fr} }
+  @media (max-width:768px) { .sidebar{display:none} .main{margin-left:0;padding:16px} .form-grid{grid-template-columns:1fr} .form-grid.cols-3,.form-grid.cols-4{grid-template-columns:1fr 1fr} .header-actions .btn-text{display:none} .score-overview{grid-template-columns:1fr} .weights-grid{grid-template-columns:1fr} .chart-area{grid-template-columns:1fr} .review-panel{max-width:100%} }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="logo-area">
+    <div class="shield">GE</div>
+    <h1>OCBA <span>— Rapport d'objectifs énergétiques</span></h1>
+  </div>
+  <div class="header-actions">
+    <button class="btn-import-pte" onclick="document.getElementById('pteFileInput').click()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h8v8H3z"></path><path d="M7 1v4M5 3l2-2 2 2"></path></svg>
+      <span class="btn-text">Import PTE</span>
+    </button>
+    <input type="file" id="pteFileInput" accept=".xlsx,.xls" style="display:none" onchange="handlePTEFile(this.files[0])">
+    <button class="btn-import-pdf" onclick="document.getElementById('pdfFileInput').click()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 2v10h8V5l-3-3H4z"></path><path d="M9 2v3h3"></path></svg>
+      <span class="btn-text">Import CECB+</span>
+    </button>
+    <input type="file" id="pdfFileInput" accept=".pdf" style="display:none" onchange="handlePDFFile(this.files[0])">
+    <button class="btn-secondary" onclick="loadJSON()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h8M7 3l4 4-4 4"></path></svg>
+      <span class="btn-text">Charger</span>
+    </button>
+    <button class="btn-secondary" onclick="saveJSON()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14V1h8l3 3v10H3z"></path></svg>
+      <span class="btn-text">Sauvegarder</span>
+    </button>
+    <button class="btn-export" onclick="exportPDF()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 10v3h10v-3M7 2v7M4 6l3 3 3-3"></path></svg>
+      <span class="btn-text">PDF</span>
+    </button>
+  </div>
+</header>
+
+<div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+
+<aside class="sidebar">
+  <div class="project-info">
+    <div class="label">Projet en cours</div>
+    <div class="value" id="sidebarProjectName">Nouveau rapport</div>
+    <div class="sub" id="sidebarProjectAddr">Aucune adresse</div>
+    <div class="sub" id="sidebarProjectSS" style="font-size:11px;color:var(--pte-color);margin-top:4px"></div>
+  </div>
+  <nav id="sidebarNav">
+    <a href="#" class="active" data-section="sectionImport"><div class="nav-icon" style="background:linear-gradient(135deg,#f59e0b,#ef4444);font-size:13px">⬆</div> Imports</a>
+    <a href="#" data-section="sectionA"><div class="nav-icon a">A</div> Identification</a>
+    <a href="#" data-section="sectionB"><div class="nav-icon b">B</div> Cadre légal</a>
+    <a href="#" data-section="sectionC"><div class="nav-icon c">C</div> État des lieux</a>
+    <a href="#" data-section="sectionD"><div class="nav-icon d">D</div> Variantes CECB+</a>
+    <a href="#" data-section="sectionScoring"><div class="nav-icon sc">★</div> Scoring</a>
+    <a href="#" data-section="sectionE"><div class="nav-icon e">E</div> Variante préconisée</a>
+    <a href="#" data-section="sectionF"><div class="nav-icon f">F</div> Subventions</a>
+    <a href="#" data-section="sectionG"><div class="nav-icon g">G</div> Signatures</a>
+  </nav>
+  <div class="sidebar-footer">Phase 1 — MVP v0.4<br>© OCBA Genève 2026</div>
+</aside>
+
+<main class="main">
+
+<!-- ═══ IMPORT ZONE ═══ -->
+<div id="sectionImport">
+  <div class="import-zone-pte" onclick="document.getElementById('pteFileInput2').click()">
+    <input type="file" id="pteFileInput2" accept=".xlsx,.xls" style="display:none" onchange="handlePTEFile(this.files[0])">
+    <div style="font-size:32px;margin-bottom:6px">📊</div>
+    <div class="iz-title">Importer le fichier Plan PTE (Excel)</div>
+    <div class="iz-sub">Cliquez pour importer le fichier Excel contenant les données Plan PTE du sous-site. Les champs N° Sous-site, EGID, Nom, Adresse, SRE ImmOBA, etc. seront pré-remplis.</div>
+    <div class="iz-badge">XLSX · Plan PTE simplifié</div>
+  </div>
+  <div class="import-zone" id="importZone" onclick="document.getElementById('pdfFileInput2').click()">
+    <input type="file" id="pdfFileInput2" accept=".pdf" style="display:none" onchange="handlePDFFile(this.files[0])">
+    <div class="iz-icon">📄</div>
+    <div class="iz-title">Importer un rapport CECB+ (PDF)</div>
+    <div class="iz-sub">Glissez-déposez un fichier PDF ici ou cliquez pour parcourir. Le système extraira automatiquement les données d'identification, les variantes, les coûts, les indices énergétiques et les éléments d'enveloppe.</div>
+    <div class="iz-badge">PDF · CECB Plus · Rapport de conseil</div>
+  </div>
+  <div class="import-progress" id="importProgress">
+    <div class="import-progress-inner">
+      <div class="ip-title"><span id="ipSpinner">⏳</span> <span id="ipTitleText">Analyse en cours…</span></div>
+      <div class="ip-bar-track"><div class="ip-bar-fill" id="ipBarFill"></div></div>
+      <div class="ip-status" id="ipStatus">Initialisation…</div>
+      <div class="ip-log" id="ipLog"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SECTION A ═══ -->
+<div class="section-card open" id="sectionA">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:var(--blue-dark)">A</div><div><div class="section-title">Identification du bâtiment</div><div class="section-subtitle">Données Plan PTE + données CECB+</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+
+    <!-- ── Plan PTE Fields ── -->
+    <div class="subsection-title"><span class="dot-pte"></span> Données Plan PTE <span class="source-tag source-pte">PTE</span></div>
+    <div class="alert-box pte"><span>Ces champs sont pré-remplis depuis le fichier Excel Plan PTE. Ils constituent le contexte projet OCBA.</span></div>
+    <div class="form-grid cols-3">
+      <div class="form-group"><label>N° Sous-site <span class="source-tag source-pte">PTE</span></label><input type="text" id="pteSousSite" class="pte-field" placeholder="589301" oninput="updateSidebar()"></div>
+      <div class="form-group"><label>N° EGID <span class="source-tag source-pte">PTE</span></label><input type="text" id="pteEgid" class="pte-field" placeholder="1024697"></div>
+      <div class="form-group"><label>Nom du site <span class="source-tag source-pte">PTE</span></label><input type="text" id="pteNomSite" class="pte-field" placeholder="Domaine de Penthes" oninput="updateSidebar()"></div>
+      <div class="form-group"><label>Adresse <span class="source-tag source-pte">PTE</span></label><input type="text" id="pteAdresse" class="pte-field" placeholder="Chemin de l'Impératrice 18" oninput="updateSidebar()"></div>
+      <div class="form-group"><label>Affectation <span class="source-tag source-pte">PTE</span></label><input type="text" id="pteAffectation" class="pte-field" placeholder="Locatif"></div>
+      <div class="form-group"><label>Politique publique <span class="source-tag source-pte">PTE</span></label><input type="text" id="ptePolitique" class="pte-field" placeholder="H - Sécurité et population"></div>
+      <div class="form-group"><label>Rang PTE</label><input type="number" id="pteRang" class="pte-field" placeholder="226"></div>
+      <div class="form-group"><label>SRE ImmOBA <span class="unit">[m²]</span></label><input type="number" id="pteSreImmoba" class="pte-field" placeholder="1510.24" step="0.01"></div>
+      <div class="form-group"><label>IDC ImmOBA <span class="unit">[MJ/(m²·an)]</span></label><input type="number" id="pteIdcImmoba" class="pte-field" placeholder="360" step="0.1"></div>
+      <div class="form-group"><label>Responsable PTE</label><input type="text" id="pteResponsable" class="pte-field" placeholder="EnR/CO2"></div>
+      <div class="form-group"><label>Mandataire CECB+</label><input type="text" id="pteMandataire" class="pte-field" placeholder="K.Wintsch &amp; Cie SA"></div>
+    </div>
+
+    <hr class="form-divider">
+
+    <!-- ── CECB+ Fields ── -->
+    <div class="subsection-title"><span class="dot"></span> Données CECB+ <span class="source-tag source-cecb">CECB+</span></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Nom du bâtiment <span class="source-tag source-cecb">CECB+</span></label><input type="text" id="batNom" placeholder="Ex. : Château – Domaine de Penthes" oninput="updateSidebar()"></div>
+      <div class="form-group"><label>N° EGID <span class="source-tag source-cecb">CECB+</span> <span class="tooltip-trigger">ℹ<span class="tooltip-text">Confirmé par le CECB+</span></span></label><input type="text" id="egid" placeholder="1024697"></div>
+      <div class="form-group"><label>Adresse</label><input type="text" id="adresse" placeholder="Rue, numéro" oninput="updateSidebar()"></div>
+      <div class="form-group"><label>NPA / Commune</label><input type="text" id="commune" placeholder="1292 Pregny-Chambésy"></div>
+      <div class="form-group"><label>Année de construction</label><input type="number" id="anneConst" placeholder="1780" min="1000" max="2030"></div>
+      <div class="form-group"><label>Année(s) de rénovation</label><input type="text" id="anneReno" placeholder="1950"></div>
+      <div class="form-group"><label>Affectation <span class="unit">(SIA 380/1)</span></label>
+        <select id="affectation"><option value="">— Sélectionner —</option><option>I — Habitat collectif</option><option>II — Administration</option><option>III — Écoles</option><option>IV — Commerce</option><option>V — Restauration</option><option>VI — Hôpitaux</option><option>VII — Lieux de rassemblement</option><option>VIII — Industrie</option><option>IX — Dépôts</option><option>X — Installations sportives</option><option>XI — Piscines couvertes</option></select>
+      </div>
+      <div class="form-group"><label>N° Parcelle</label><input type="text" id="numParcelle" placeholder="405"></div>
+    </div>
+    <hr class="form-divider">
+    <div class="subsection-title"><span class="dot"></span>Surfaces et indices <span class="source-tag source-cecb">CECB+</span></div>
+    <div class="form-grid cols-3">
+      <div class="form-group"><label>SRE CECB <span class="unit">[m²]</span></label><input type="number" id="sreCecb" placeholder="1363" step="0.1"></div>
+      <div class="form-group"><label>IDC corrigé CECB <span class="unit">[MJ/(m²·an)]</span></label><input type="number" id="idcCecb" placeholder="413" step="0.1"></div>
+      <div class="form-group"><label>Émissions CO₂ <span class="unit">[kg/(m²·an)]</span></label><input type="number" id="emissionsCO2" placeholder="50.5" step="0.01"></div>
+      <div class="form-group"><label>Classe enveloppe actuelle</label><input type="text" id="classeEnveloppe" placeholder="G"></div>
+      <div class="form-group"><label>Classe globale actuelle</label><input type="text" id="classeGlobale" placeholder="G"></div>
+      <div class="form-group"><label>Agent énergétique actuel</label><input type="text" id="agentActuel" placeholder="Mazout"></div>
+    </div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION B ═══ -->
+<div class="section-card" id="sectionB">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:#7c3aed">B</div><div><div class="section-title">Cadre légal et normatif</div><div class="section-subtitle">Lois, règlements, normes SIA</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="alert-box info"><span>Section de référence — repliée dans le rapport final.</span></div>
+    <div class="collapsible-inner"><div class="collapsible-inner-header" onclick="toggleInner(this)"><span>📜 LEn / REn — Exigences cantonales</span><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l4 4 4-4"></path></svg></div><div class="collapsible-inner-body"><div class="collapsible-inner-content">Art. 12B — Enveloppe thermique. Art. 12C — ≥30% renouvelable. Art. 13B — Audit CECB+ &gt; 2000 m².</div></div></div>
+    <div class="collapsible-inner"><div class="collapsible-inner-header" onclick="toggleInner(this)"><span>📜 Objectifs 2030 / 2050</span><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5l4 4 4-4"></path></svg></div><div class="collapsible-inner-body"><div class="collapsible-inner-content"><strong>2030:</strong> IDC&lt;350, CO₂&lt;6 — <strong>2050:</strong> IDC&lt;230, sortie fossiles.</div></div></div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION C ═══ -->
+<div class="section-card" id="sectionC">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:#0891b2">C</div><div><div class="section-title">État des lieux</div><div class="section-subtitle">Description, diagnostics</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="form-group full"><label>Description générale</label><textarea id="descGeneral" rows="5" placeholder="Description du bâtiment…"></textarea></div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION D ═══ -->
+<div class="section-card" id="sectionD">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:#059669">D</div><div><div class="section-title">Validation des variantes CECB+</div><div class="section-subtitle">Comparaison, objectifs, préconisation</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="subsection-title"><span class="dot"></span>Tableau comparatif</div>
+    <div class="data-table-wrapper">
+      <table class="data-table" id="variantesTable">
+        <thead><tr><th>Critère</th><th>État existant</th><th>Variante A</th><th>Variante B</th><th>Variante C</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Standard visé</strong></td><td>—</td><td><input type="text" id="vA_standard" placeholder="HPE Rénov."></td><td><input type="text" id="vB_standard" placeholder="THPE Rénov."></td><td><input type="text" id="vC_standard" placeholder="THPE+"></td></tr>
+          <tr><td>Qh/Qh,li <span style="font-size:11px;color:var(--gray-400)">[%]</span></td><td><input type="number" id="exist_qh" placeholder="—" step="0.1"></td><td><input type="number" id="vA_qh" placeholder="0" step="0.1" class="v-qh" data-var="A"></td><td><input type="number" id="vB_qh" placeholder="0" step="0.1" class="v-qh" data-var="B"></td><td><input type="number" id="vC_qh" placeholder="0" step="0.1" class="v-qh" data-var="C"></td></tr>
+          <tr><td>EHWLK/EHWLK,li <span style="font-size:11px;color:var(--gray-400)">[%]</span></td><td><input type="number" id="exist_ehwlk" placeholder="—" step="0.1"></td><td><input type="number" id="vA_ehwlk" placeholder="0" step="0.1" class="v-ehwlk" data-var="A"></td><td><input type="number" id="vB_ehwlk" placeholder="0" step="0.1" class="v-ehwlk" data-var="B"></td><td><input type="number" id="vC_ehwlk" placeholder="0" step="0.1" class="v-ehwlk" data-var="C"></td></tr>
+          <tr><td>IDC <span style="font-size:11px;color:var(--gray-400)">[MJ/(m²·an)]</span></td><td><input type="number" id="exist_idc" placeholder="—" step="0.1"></td><td><input type="number" id="vA_idc" placeholder="0" step="0.1" class="v-idc calc-idc" data-var="A"></td><td><input type="number" id="vB_idc" placeholder="0" step="0.1" class="v-idc calc-idc" data-var="B"></td><td><input type="number" id="vC_idc" placeholder="0" step="0.1" class="v-idc calc-idc" data-var="C"></td></tr>
+          <tr><td>CO₂ <span style="font-size:11px;color:var(--gray-400)">[kg/(m²·an)]</span></td><td><input type="number" id="exist_co2" placeholder="—" step="0.01"></td><td><input type="number" id="vA_co2" placeholder="0" step="0.01" class="v-co2 calc-co2" data-var="A"></td><td><input type="number" id="vB_co2" placeholder="0" step="0.01" class="v-co2 calc-co2" data-var="B"></td><td><input type="number" id="vC_co2" placeholder="0" step="0.01" class="v-co2 calc-co2" data-var="C"></td></tr>
+          <tr><td>Agent énergétique</td><td><input type="text" id="exist_agent" placeholder="Gaz"></td><td><input type="text" id="vA_agent" placeholder="PAC" class="v-agent" data-var="A"></td><td><input type="text" id="vB_agent" placeholder="CAD" class="v-agent" data-var="B"></td><td><input type="text" id="vC_agent" placeholder="Bois" class="v-agent" data-var="C"></td></tr>
+          <tr><td>Coût total <span style="font-size:11px;color:var(--gray-400)">[CHF HT]</span></td><td>—</td><td><input type="number" id="vA_cost" placeholder="0" step="1000" class="v-cost" data-var="A"></td><td><input type="number" id="vB_cost" placeholder="0" step="1000" class="v-cost" data-var="B"></td><td><input type="number" id="vC_cost" placeholder="0" step="1000" class="v-cost" data-var="C"></td></tr>
+          <tr><td>Subventions <span style="font-size:11px;color:var(--gray-400)">[CHF]</span></td><td>—</td><td><input type="number" id="vA_sub" placeholder="0" step="1000" class="v-sub" data-var="A"></td><td><input type="number" id="vB_sub" placeholder="0" step="1000" class="v-sub" data-var="B"></td><td><input type="number" id="vC_sub" placeholder="0" step="1000" class="v-sub" data-var="C"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="subsection-title"><span class="dot"></span>Conformité objectifs OCBA</div>
+    <div class="data-table-wrapper">
+      <table class="data-table" id="objectifsTable">
+        <thead><tr><th>Objectif</th><th>Cible</th><th>Var. A</th><th>Var. B</th><th>Var. C</th></tr></thead>
+        <tbody>
+          <tr><td>IDC 2030</td><td>&lt; 350 MJ/(m²·an)</td><td id="objA2030idc">—</td><td id="objB2030idc">—</td><td id="objC2030idc">—</td></tr>
+          <tr><td>IDC 2050</td><td>&lt; 230 MJ/(m²·an)</td><td id="objA2050idc">—</td><td id="objB2050idc">—</td><td id="objC2050idc">—</td></tr>
+          <tr><td>CO₂</td><td>&lt; 6 kg/(m²·an)</td><td id="objACO2">—</td><td id="objBCO2">—</td><td id="objCCO2">—</td></tr>
+          <tr><td>Sortie fossile</td><td>100% renouvelable</td><td id="objAfossile">—</td><td id="objBfossile">—</td><td id="objCfossile">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION SCORING ═══ -->
+<div class="section-card" id="sectionScoring">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">★</div><div><div class="section-title">Scoring multicritère</div><div class="section-subtitle">Pondération, radar comparatif, aide à la décision</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="alert-box info"><span>Les scores sont calculés automatiquement depuis la Section D. Ajustez les pondérations pour refléter les priorités du projet.</span></div>
+    <div class="score-overview" id="scoreOverview">
+      <div class="score-card variant-a" id="scoreCardA"><div class="sc-label">Variante A</div><div class="sc-score" id="totalScoreA" style="color:var(--gray-300)">—</div><div class="sc-suffix">/ 100</div><div class="sc-bar-container"><div class="sc-bar" id="barA" style="width:0%;background:var(--varA-color)"></div></div></div>
+      <div class="score-card variant-b" id="scoreCardB"><div class="sc-label">Variante B</div><div class="sc-score" id="totalScoreB" style="color:var(--gray-300)">—</div><div class="sc-suffix">/ 100</div><div class="sc-bar-container"><div class="sc-bar" id="barB" style="width:0%;background:var(--varB-color)"></div></div></div>
+      <div class="score-card variant-c" id="scoreCardC"><div class="sc-label">Variante C</div><div class="sc-score" id="totalScoreC" style="color:var(--gray-300)">—</div><div class="sc-suffix">/ 100</div><div class="sc-bar-container"><div class="sc-bar" id="barC" style="width:0%;background:var(--varC-color)"></div></div></div>
+    </div>
+    <div class="subsection-title" style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="display:flex;align-items:center;gap:8px"><span class="dot"></span>Pondération des critères</span>
+      <button class="btn-reset" onclick="resetWeights()">↻ Réinitialiser</button>
+    </div>
+    <div class="weights-grid" id="weightsGrid">
+      <div class="weight-item"><div class="wi-header"><span class="wi-label">🏗️ Enveloppe (Qh)</span><span class="wi-value" id="wVal0">5</span></div><input type="range" min="0" max="10" value="5" data-idx="0" oninput="onWeightChange(this)"></div>
+      <div class="weight-item"><div class="wi-header"><span class="wi-label">⚡ Énergie (EHWLK)</span><span class="wi-value" id="wVal1">5</span></div><input type="range" min="0" max="10" value="5" data-idx="1" oninput="onWeightChange(this)"></div>
+      <div class="weight-item"><div class="wi-header"><span class="wi-label">🔥 IDC</span><span class="wi-value" id="wVal2">7</span></div><input type="range" min="0" max="10" value="7" data-idx="2" oninput="onWeightChange(this)"></div>
+      <div class="weight-item"><div class="wi-header"><span class="wi-label">🌿 CO₂</span><span class="wi-value" id="wVal3">8</span></div><input type="range" min="0" max="10" value="8" data-idx="3" oninput="onWeightChange(this)"></div>
+      <div class="weight-item"><div class="wi-header"><span class="wi-label">💰 Investissement</span><span class="wi-value" id="wVal4">4</span></div><input type="range" min="0" max="10" value="4" data-idx="4" oninput="onWeightChange(this)"></div>
+      <div class="weight-item"><div class="wi-header"><span class="wi-label">🎁 Subventions</span><span class="wi-value" id="wVal5">3</span></div><input type="range" min="0" max="10" value="3" data-idx="5" oninput="onWeightChange(this)"></div>
+    </div>
+    <div class="chart-area">
+      <div class="chart-container"><div class="chart-title">Radar comparatif</div><canvas id="radarCanvas" width="420" height="420"></canvas></div>
+      <div class="chart-container"><div class="chart-title">Scores pondérés par critère</div><canvas id="barCanvas" width="420" height="420"></canvas></div>
+    </div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--varA-color)"></div> Variante A</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--varB-color)"></div> Variante B</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--varC-color)"></div> Variante C</div>
+    </div>
+    <div class="subsection-title"><span class="dot"></span>Détail des scores</div>
+    <div class="score-breakdown"><table id="scoreTable"><thead><tr><th>Critère</th><th>Poids</th><th style="color:var(--varA-color)">Score A</th><th style="color:var(--varA-color)">Pond. A</th><th style="color:var(--varB-color)">Score B</th><th style="color:var(--varB-color)">Pond. B</th><th style="color:var(--varC-color)">Score C</th><th style="color:var(--varC-color)">Pond. C</th></tr></thead><tbody id="scoreTableBody"></tbody></table></div>
+    <div class="sensitivity-box"><strong>💡 Analyse de sensibilité :</strong> Déplacez les curseurs pour tester la robustesse du classement.</div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION E ═══ -->
+<div class="section-card" id="sectionE">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:var(--orange)">E</div><div><div class="section-title">Détail variante préconisée</div><div class="section-subtitle">Enveloppe, installations</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="subsection-title"><span class="dot"></span>Enveloppe thermique</div>
+    <div class="data-table-wrapper">
+      <table class="data-table" id="enveloppeTable">
+        <thead><tr><th>Élément</th><th>Description existant</th><th>U actuel [W/(m²·K)]</th><th>Mesure préconisée</th><th>U visé [W/(m²·K)]</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Toiture</strong></td><td><input type="text" id="env_toit_desc"></td><td><input type="number" id="env_toit_u" step="0.01"></td><td><input type="text" id="env_toit_mesure"></td><td><input type="number" id="env_toit_uvise" step="0.01"></td></tr>
+          <tr><td><strong>Murs ext.</strong></td><td><input type="text" id="env_murs_desc"></td><td><input type="number" id="env_murs_u" step="0.01"></td><td><input type="text" id="env_murs_mesure"></td><td><input type="number" id="env_murs_uvise" step="0.01"></td></tr>
+          <tr><td><strong>Sols / Dalle</strong></td><td><input type="text" id="env_sols_desc"></td><td><input type="number" id="env_sols_u" step="0.01"></td><td><input type="text" id="env_sols_mesure"></td><td><input type="number" id="env_sols_uvise" step="0.01"></td></tr>
+          <tr><td><strong>Fenêtres</strong></td><td><input type="text" id="env_fen_desc"></td><td><input type="number" id="env_fen_u" step="0.01"></td><td><input type="text" id="env_fen_mesure"></td><td><input type="number" id="env_fen_uvise" step="0.01"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="subsection-title"><span class="dot"></span>Installations techniques</div>
+    <div class="data-table-wrapper">
+      <table class="data-table">
+        <thead><tr><th>Installation</th><th>État actuel</th><th>Préconisation</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Production chaleur</strong></td><td><input type="text" id="tech_chaleur_actuel"></td><td><input type="text" id="tech_chaleur_preco"></td></tr>
+          <tr><td><strong>Distribution</strong></td><td><input type="text" id="tech_distrib_actuel"></td><td><input type="text" id="tech_distrib_preco"></td></tr>
+          <tr><td><strong>ECS</strong></td><td><input type="text" id="tech_ecs_actuel"></td><td><input type="text" id="tech_ecs_preco"></td></tr>
+          <tr><td><strong>Ventilation</strong></td><td><input type="text" id="tech_ventil_actuel"></td><td><input type="text" id="tech_ventil_preco"></td></tr>
+          <tr><td><strong>PV</strong></td><td><input type="text" id="tech_pv_actuel"></td><td><input type="text" id="tech_pv_preco"></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION F ═══ -->
+<div class="section-card" id="sectionF">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:#ec4899">F</div><div><div class="section-title">Subventions</div><div class="section-subtitle">Éligibilité et estimation</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="form-group full"><label>Détails des subventions</label><textarea rows="4" id="subventionsTexte" placeholder="Programme bâtiments, subventions cantonales…"></textarea></div>
+  </div></div>
+</div>
+
+<!-- ═══ SECTION G ═══ -->
+<div class="section-card" id="sectionG">
+  <div class="section-header" onclick="toggleSection(this)">
+    <div class="left"><div class="section-badge" style="background:#6366f1">G</div><div><div class="section-title">Signatures</div><div class="section-subtitle">Validation du rapport</div></div></div>
+    <div class="chevron"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7l5 5 5-5"></path></svg></div>
+  </div>
+  <div class="section-body"><div class="section-content">
+    <div class="signature-block"><div class="sig-title">Rédacteur</div><div class="signature-row"><div class="form-group"><label>Nom</label><input type="text" id="sigRedacteur"></div><div class="form-group"><label>Date</label><input type="date" id="sigRedacteurDate"></div></div></div>
+    <div class="signature-block"><div class="sig-title">Validation DO-PTE</div><div class="signature-row"><div class="form-group"><label>Nom</label><input type="text" id="sigDO"></div><div class="form-group"><label>Date</label><input type="date" id="sigDODate"></div></div></div>
+  </div></div>
+</div>
+
+</main>
+
+<!-- ═══ REVIEW MODAL ═══ -->
+<div class="review-overlay" id="reviewOverlay">
+  <div class="review-panel">
+    <div class="review-panel-header">
+      <h2>📋 Résultat de l'extraction CECB+</h2>
+      <div class="rp-stats"><span class="rp-stat found" id="rpFound">0 trouvés</span><span class="rp-stat missing" id="rpMissing">0 absents</span></div>
+    </div>
+    <div class="review-panel-body" id="reviewBody"></div>
+    <div class="review-panel-footer">
+      <div class="rpf-left" id="rpfLeft">Décochez les valeurs à ne pas importer</div>
+      <div class="rpf-right">
+        <button class="rpf-btn-selectall" onclick="toggleSelectAll()">☑ Tout sélectionner</button>
+        <button class="rpf-btn-cancel" onclick="closeReview()">Annuler</button>
+        <button class="rpf-btn-apply" onclick="applyExtracted()">✓ Appliquer la sélection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ GENERIC MODAL ═══ -->
+<div class="modal-generic-overlay" id="modalOverlay">
+  <div style="background:var(--white);border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+    <h3 id="modalTitle" style="font-size:16px;font-weight:600;margin-bottom:8px;"></h3>
+    <p id="modalMsg" style="font-size:14px;color:var(--gray-600);margin-bottom:20px;line-height:1.6;"></p>
+    <div style="text-align:right;"><button onclick="closeModal()" style="padding:8px 20px;border-radius:6px;border:none;background:var(--blue-accent);color:white;font-weight:500;cursor:pointer;">OK</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// PDF.JS SETUP
+// ═══════════════════════════════════════════
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ═══════════════════════════════════════════
+// GENERIC UI
+// ═══════════════════════════════════════════
+function toggleSection(h){h.closest('.section-card').classList.toggle('open')}
+function toggleInner(h){h.closest('.collapsible-inner').classList.toggle('open')}
+const navLinks=document.querySelectorAll('#sidebarNav a');
+navLinks.forEach(link=>{link.addEventListener('click',function(e){e.preventDefault();const t=document.getElementById(this.dataset.section);if(t){if(!t.classList.contains('open')&&t.classList.contains('section-card'))t.classList.add('open');t.scrollIntoView({behavior:'smooth',block:'start'});}navLinks.forEach(l=>l.classList.remove('active'));this.classList.add('active');})});
+function updateSidebar(){
+  const nom=document.getElementById('pteNomSite').value||document.getElementById('batNom').value||'Nouveau rapport';
+  const adr=document.getElementById('pteAdresse').value||document.getElementById('adresse').value||'Aucune adresse';
+  const ss=document.getElementById('pteSousSite').value;
+  document.getElementById('sidebarProjectName').textContent=nom;
+  document.getElementById('sidebarProjectAddr').textContent=adr;
+  document.getElementById('sidebarProjectSS').textContent=ss?('Sous-site: '+ss):'';
+}
+function showModal(t,m){document.getElementById('modalTitle').textContent=t;document.getElementById('modalMsg').textContent=m;document.getElementById('modalOverlay').classList.add('active');}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('active');}
+function updateProgress(){const all=document.querySelectorAll('.main input:not([readonly]),.main select,.main textarea');let f=0;all.forEach(el=>{if(el.value&&el.value.trim())f++;});document.getElementById('progressFill').style.width=Math.round(f/all.length*100)+'%';}
+document.addEventListener('input',updateProgress);
+
+// ═══════════════════════════════════════════
+// EXCEL PTE IMPORT
+// ═══════════════════════════════════════════
+
+// Mapping: Excel column header → HTML field id
+const PTE_COL_MAP = {
+  'numero_sous_site': 'pteSousSite',
+  'n_sous_site': 'pteSousSite',
+  'numéro sous site': 'pteSousSite',
+  'sous_site': 'pteSousSite',
+  'egid': 'pteEgid',
+  'nom_site': 'pteNomSite',
+  'nom du site': 'pteNomSite',
+  'nom site': 'pteNomSite',
+  'nom du site_ab': 'pteNomSite',
+  'adresse': 'pteAdresse',
+  'adresse_ab': 'pteAdresse',
+  'affectation': 'pteAffectation',
+  'affectation_ab': 'pteAffectation',
+  'politique_publique': 'ptePolitique',
+  'politique publique': 'ptePolitique',
+  'politique publique_ab': 'ptePolitique',
+  'rang': 'pteRang',
+  'rang pte': 'pteRang',
+  'sre_immoba': 'pteSreImmoba',
+  'sre immoba': 'pteSreImmoba',
+  'sre': 'pteSreImmoba',
+  'idc_immoba': 'pteIdcImmoba',
+  'idc immoba': 'pteIdcImmoba',
+  'idc': 'pteIdcImmoba',
+  'responsable_pte': 'pteResponsable',
+  'responsable pte': 'pteResponsable',
+  'responsable': 'pteResponsable',
+  'mandataire': 'pteMandataire',
+  'mandataire_cecb': 'pteMandataire',
+  'mandataire cecb+': 'pteMandataire',
+  'audit cecb+': 'pteMandataire',
+  'audit_cecb': 'pteMandataire',
+};
+
+function handlePTEFile(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const sheetName=wb.SheetNames[0];
+      const ws=wb.Sheets[sheetName];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+
+      if(!rows.length){showModal('Fichier vide','Aucune ligne trouvée dans l\'onglet "'+sheetName+'".');return;}
+
+      // If only one row, use it directly
+      if(rows.length===1){
+        applyPTERow(rows[0]);
+        return;
+      }
+
+      // Multiple rows: ask user to pick by sous-site
+      const soussite=prompt('Plusieurs lignes trouvées ('+rows.length+'). Entrez le N° Sous-site à importer :');
+      if(!soussite){showModal('Annulé','Import annulé.');return;}
+
+      // Find matching row
+      const headers=Object.keys(rows[0]);
+      const ssCol=headers.find(h=>{const hl=h.toLowerCase().replace(/[^a-z0-9]/g,'');return hl.includes('soussit')||hl.includes('numsous')||hl==='numerosoussite';});
+      const match=rows.find(r=>{const val=String(ssCol?r[ssCol]:r[headers[0]]);return val===soussite||val.includes(soussite);});
+      if(!match){showModal('Non trouvé','Aucune ligne avec le sous-site "'+soussite+'" trouvée.');return;}
+      applyPTERow(match);
+    }catch(err){
+      showModal('Erreur import','Impossible de lire le fichier Excel: '+err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function applyPTERow(row){
+  let applied=0;
+  for(const[rawCol,val] of Object.entries(row)){
+    const colNorm=rawCol.toLowerCase().trim();
+    const targetId=PTE_COL_MAP[colNorm];
+    if(targetId&&val!==''&&val!==null&&val!==undefined){
+      const el=document.getElementById(targetId);
+      if(el){
+        // Clean values like ['[MJ/m2]'] from IDC
+        let cleanVal=String(val);
+        if(cleanVal.startsWith('[')&&cleanVal.includes('MJ'))cleanVal='';
+        if(cleanVal.startsWith("['"))cleanVal='';
+        if(cleanVal){
+          el.value=cleanVal;
+          el.style.transition='background 0.3s';
+          el.style.background='#d1fae5';
+          setTimeout(()=>{el.style.background='';el.classList.add('pte-field');},1500);
+          applied++;
+        }
+      }
+    }
+  }
+  updateSidebar();
+  updateProgress();
+  showModal('Import PTE réussi',applied+' champ(s) pré-rempli(s) depuis le Plan PTE.');
+  const secA=document.getElementById('sectionA');
+  if(secA&&!secA.classList.contains('open'))secA.classList.add('open');
+}
+
+// ═══════════════════════════════════════════
+// OBJECTIFS
+// ═══════════════════════════════════════════
+function updateObjectifs(){
+  const idcI=document.querySelectorAll('.calc-idc'),co2I=document.querySelectorAll('.calc-co2'),agI=document.querySelectorAll('.v-agent');
+  const foss=['gaz','mazout','fioul','fuel','fossile'];
+  ['A','B','C'].forEach((l,i)=>{
+    const idc=parseFloat(idcI[i]?.value)||0,co2=parseFloat(co2I[i]?.value)||0;
+    const ag=(agI[i]?.value||'').toLowerCase(),isF=foss.some(f=>ag.includes(f));
+    const sc=(id,ok)=>{const el=document.getElementById(id);if(!idc&&!co2){el.innerHTML='—';return;}el.innerHTML=ok?'<span class="badge-yes">✓</span>':'<span class="badge-no">✗</span>';};
+    sc(`obj${l}2030idc`,idc<=350);sc(`obj${l}2050idc`,idc<=230);sc(`obj${l}CO2`,co2<=6);
+    const fe=document.getElementById(`obj${l}fossile`);if(!ag){fe.innerHTML='—';}else{fe.innerHTML=isF?'<span class="badge-no">✗ Fossile</span>':'<span class="badge-yes">✓ Renouv.</span>';}
+  });
+}
+document.getElementById('variantesTable').addEventListener('input',()=>{updateObjectifs();updateScoring();});
+
+// ═══════════════════════════════════════════
+// SAVE / LOAD JSON
+// ═══════════════════════════════════════════
+function collectAllData(){const d={};document.querySelectorAll('input[id],select[id],textarea[id]').forEach(el=>{if(el.id)d[el.id]=el.value;});d._weights=getWeights();d._timestamp=new Date().toISOString();return d;}
+function saveJSON(){const d=collectAllData(),b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=`rapport-${document.getElementById('pteSousSite').value||document.getElementById('batNom').value||'nouveau'}.json`;a.click();URL.revokeObjectURL(u);showModal('Sauvegarde','Fichier JSON téléchargé.');}
+function loadJSON(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);for(const[k,v] of Object.entries(d)){if(k.startsWith('_'))continue;const el=document.getElementById(k);if(el)el.value=v;}if(d._weights)setWeights(d._weights);updateSidebar();updateObjectifs();updateScoring();showModal('Chargement','Rapport chargé.');}catch(err){showModal('Erreur','Fichier invalide.');}};r.readAsText(f);};inp.click();}
+function exportPDF(){showModal('Export PDF','Utilisez Ctrl+P → Enregistrer en PDF.');}
+
+// ═══════════════════════════════════════════
+// SCORING ENGINE
+// ═══════════════════════════════════════════
+const CRITERIA=[
+  {key:'qh',label:'Enveloppe (Qh)',emoji:'🏗️',lowerBetter:true,refMin:30,refMax:120},
+  {key:'ehwlk',label:'Énergie (EHWLK)',emoji:'⚡',lowerBetter:true,refMin:30,refMax:120},
+  {key:'idc',label:'IDC',emoji:'🔥',lowerBetter:true,refMin:100,refMax:600},
+  {key:'co2',label:'CO₂',emoji:'🌿',lowerBetter:true,refMin:0,refMax:20},
+  {key:'cost',label:'Investissement',emoji:'💰',lowerBetter:true,relative:true},
+  {key:'sub',label:'Subventions',emoji:'🎁',lowerBetter:false,relative:true},
+];
+const DEFAULT_WEIGHTS=[5,5,7,8,4,3];
+function getWeights(){return Array.from(document.querySelectorAll('#weightsGrid input[type="range"]')).map(s=>parseInt(s.value));}
+function setWeights(w){document.querySelectorAll('#weightsGrid input[type="range"]').forEach((s,i)=>{s.value=w[i]!=null?w[i]:DEFAULT_WEIGHTS[i];document.getElementById('wVal'+i).textContent=s.value;});}
+function resetWeights(){setWeights(DEFAULT_WEIGHTS);updateScoring();}
+function onWeightChange(el){document.getElementById('wVal'+el.dataset.idx).textContent=el.value;updateScoring();}
+
+function readVariantValues(){
+  const get=(cls,idx)=>parseFloat(document.querySelectorAll('.'+cls)[idx]?.value)||0;
+  const v=[];for(let i=0;i<3;i++){v.push({qh:get('v-qh',i),ehwlk:get('v-ehwlk',i),idc:get('v-idc',i),co2:get('v-co2',i),cost:get('v-cost',i),sub:get('v-sub',i)});}return v;
+}
+function normalizeScore(value,criterion,allValues){
+  if(value===0&&allValues.every(v=>v===0))return null;
+  let min,max;
+  if(criterion.relative){const nz=allValues.filter(v=>v>0);if(!nz.length)return null;min=Math.min(...nz);max=Math.max(...nz);if(min===max)return 75;}
+  else{min=criterion.refMin;max=criterion.refMax;}
+  let s=criterion.lowerBetter?(max-value)/(max-min)*100:(value-min)/(max-min)*100;
+  return Math.max(0,Math.min(100,Math.round(s)));
+}
+function scoreColorClass(s){if(s===null)return'';if(s<25)return'score-color-0';if(s<50)return'score-color-1';if(s<70)return'score-color-2';if(s<85)return'score-color-3';return'score-color-4';}
+function scoreColor(s){if(s===null)return'#d1d5db';if(s<25)return'#dc2626';if(s<50)return'#d97706';if(s<70)return'#ca8a04';if(s<85)return'#059669';return'#047857';}
+
+function updateScoring(){
+  const vars=readVariantValues(),weights=getWeights();
+  const scores=[[],[],[]];
+  CRITERIA.forEach((crit,ci)=>{const allVals=vars.map(v=>v[crit.key]);for(let vi=0;vi<3;vi++){scores[vi][ci]=normalizeScore(vars[vi][crit.key],crit,allVals);}});
+  const totals=[0,0,0],weightSum=weights.reduce((a,b)=>a+b,0)||1;
+  for(let vi=0;vi<3;vi++){let wS=0,sS=0;CRITERIA.forEach((_,ci)=>{if(scores[vi][ci]!==null){sS+=scores[vi][ci]*weights[ci];wS+=weights[ci];}});totals[vi]=wS>0?Math.round(sS/wS):null;}
+  const letters=['A','B','C'],validTotals=totals.filter(t=>t!==null),bestScore=validTotals.length?Math.max(...validTotals):null;
+  letters.forEach((l,i)=>{const card=document.getElementById('scoreCard'+l),scoreEl=document.getElementById('totalScore'+l),barEl=document.getElementById('bar'+l);card.classList.remove('best');if(totals[i]!==null){scoreEl.textContent=totals[i];scoreEl.style.color=scoreColor(totals[i]);barEl.style.width=totals[i]+'%';barEl.style.background=scoreColor(totals[i]);if(totals[i]===bestScore&&validTotals.length>1)card.classList.add('best');}else{scoreEl.textContent='—';scoreEl.style.color='#d1d5db';barEl.style.width='0%';}});
+  const tbody=document.getElementById('scoreTableBody');let html='';
+  CRITERIA.forEach((crit,ci)=>{html+='<tr>';html+=`<td>${crit.emoji} ${crit.label}</td><td style="font-weight:600">${weights[ci]}</td>`;for(let vi=0;vi<3;vi++){const s=scores[vi][ci],ws=s!==null?Math.round(s*weights[ci]/weightSum):null;html+=`<td><span class="score-cell ${scoreColorClass(s)}">${s!==null?s:'—'}</span></td><td style="font-size:11px;color:var(--gray-500)">${ws!==null?ws.toFixed(1):'—'}</td>`;}html+='</tr>';});
+  html+='<tr class="weighted-row"><td><strong>TOTAL PONDÉRÉ</strong></td><td></td>';for(let vi=0;vi<3;vi++){const t=totals[vi];html+=`<td colspan="2"><span class="score-cell ${scoreColorClass(t)}" style="font-size:14px;padding:4px 12px;">${t!==null?t:'—'}</span></td>`;}html+='</tr>';
+  tbody.innerHTML=html;drawRadar(scores);drawBarChart(scores,weights,weightSum);
+}
+
+function drawRadar(scores){
+  const canvas=document.getElementById('radarCanvas'),dpr=window.devicePixelRatio||1,size=Math.min(canvas.parentElement.clientWidth-32,420);
+  canvas.width=size*dpr;canvas.height=size*dpr;canvas.style.width=size+'px';canvas.style.height=size+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);const cx=size/2,cy=size/2,r=size/2-50,n=CRITERIA.length;ctx.clearRect(0,0,size,size);
+  for(let lv=1;lv<=5;lv++){const lr=r*lv/5;ctx.beginPath();for(let i=0;i<=n;i++){const a=Math.PI*2*i/n-Math.PI/2,x=cx+lr*Math.cos(a),y=cy+lr*Math.sin(a);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}ctx.strokeStyle=lv===5?'#d1d5db':'#e5e7eb';ctx.lineWidth=1;ctx.stroke();if(lv%2===0||lv===5){ctx.fillStyle='#9ca3af';ctx.font='9px Inter,sans-serif';ctx.textAlign='center';ctx.fillText(lv*20,cx,cy-lr-3);}}
+  for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));ctx.strokeStyle='#d1d5db';ctx.lineWidth=1;ctx.stroke();}
+  ctx.font='11px Inter,sans-serif';ctx.fillStyle='#374151';ctx.textBaseline='middle';
+  for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2,lx=cx+(r+32)*Math.cos(a),ly=cy+(r+32)*Math.sin(a);ctx.textAlign=Math.abs(Math.cos(a))>0.8?(Math.cos(a)>0?'left':'right'):'center';ctx.fillText(CRITERIA[i].emoji+' '+CRITERIA[i].label,lx,ly);}
+  const configs=[{f:'rgba(59,130,246,0.12)',s:'#3b82f6'},{f:'rgba(139,92,246,0.12)',s:'#8b5cf6'},{f:'rgba(16,185,129,0.12)',s:'#10b981'}];
+  for(let vi=0;vi<3;vi++){const vals=scores[vi];if(vals.every(v=>v===null))continue;ctx.beginPath();let started=false;for(let i=0;i<n;i++){const v=vals[i]!==null?vals[i]:0,a=Math.PI*2*i/n-Math.PI/2,vr=r*v/100,x=cx+vr*Math.cos(a),y=cy+vr*Math.sin(a);!started?(ctx.moveTo(x,y),started=true):ctx.lineTo(x,y);}ctx.closePath();ctx.fillStyle=configs[vi].f;ctx.fill();ctx.strokeStyle=configs[vi].s;ctx.lineWidth=2.5;ctx.stroke();
+  for(let i=0;i<n;i++){const v=vals[i]!==null?vals[i]:0,a=Math.PI*2*i/n-Math.PI/2,vr=r*v/100,x=cx+vr*Math.cos(a),y=cy+vr*Math.sin(a);ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle=configs[vi].s;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.stroke();}}
+}
+function drawBarChart(scores,weights,weightSum){
+  const canvas=document.getElementById('barCanvas'),dpr=window.devicePixelRatio||1,W=Math.min(canvas.parentElement.clientWidth-32,420),H=W;
+  canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,W,H);
+  const n=CRITERIA.length,ml=10,mr=20,mt=20,mb=50,chartW=W-ml-mr,chartH=H-mt-mb,groupW=chartW/n,barW=Math.min(groupW*0.22,24),gap=3,varColors=['#3b82f6','#8b5cf6','#10b981'];
+  let yMax=0;CRITERIA.forEach((_,ci)=>{for(let vi=0;vi<3;vi++){const s=scores[vi][ci];if(s!==null){const ws=s*weights[ci]/(weightSum||1);if(ws>yMax)yMax=ws;}}});yMax=Math.ceil(yMax/5)*5||20;
+  ctx.strokeStyle='#e5e7eb';ctx.lineWidth=1;ctx.font='9px Inter,sans-serif';ctx.fillStyle='#9ca3af';ctx.textAlign='right';
+  for(let g=0;g<=4;g++){const y=mt+chartH-(chartH*g/4);ctx.beginPath();ctx.moveTo(ml,y);ctx.lineTo(ml+chartW,y);ctx.stroke();ctx.fillText(Math.round(yMax*g/4),ml-3,y+3);}
+  CRITERIA.forEach((crit,ci)=>{const gx=ml+groupW*ci+groupW/2;for(let vi=0;vi<3;vi++){const s=scores[vi][ci];if(s===null)continue;const ws=s*weights[ci]/(weightSum||1),bh=(ws/yMax)*chartH,bx=gx+(vi-1)*(barW+gap)-barW/2,by=mt+chartH-bh,radius=Math.min(3,barW/2);ctx.beginPath();ctx.moveTo(bx,mt+chartH);ctx.lineTo(bx,by+radius);ctx.quadraticCurveTo(bx,by,bx+radius,by);ctx.lineTo(bx+barW-radius,by);ctx.quadraticCurveTo(bx+barW,by,bx+barW,by+radius);ctx.lineTo(bx+barW,mt+chartH);ctx.closePath();ctx.fillStyle=varColors[vi];ctx.globalAlpha=0.85;ctx.fill();ctx.globalAlpha=1;if(bh>14){ctx.fillStyle=varColors[vi];ctx.font='bold 9px Inter,sans-serif';ctx.textAlign='center';ctx.fillText(Math.round(ws),bx+barW/2,by-4);}}ctx.fillStyle='#374151';ctx.font='10px Inter,sans-serif';ctx.textAlign='center';ctx.fillText(crit.emoji,gx,mt+chartH+18);ctx.fillStyle='#6b7280';ctx.font='9px Inter,sans-serif';ctx.fillText(crit.label.length>12?crit.label.slice(0,12)+'…':crit.label,gx,mt+chartH+32);});
+}
+
+setTimeout(()=>updateScoring(),100);
+window.addEventListener('resize',()=>updateScoring());
+
+// ═══════════════════════════════════════════
+// PDF IMPORT & CECB+ PARSER
+// ═══════════════════════════════════════════
+const importZone=document.getElementById('importZone');
+['dragenter','dragover'].forEach(evt=>{importZone.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();importZone.classList.add('drag-over');});});
+['dragleave','drop'].forEach(evt=>{importZone.addEventListener(evt,e=>{e.preventDefault();e.stopPropagation();importZone.classList.remove('drag-over');});});
+importZone.addEventListener('drop',e=>{const file=e.dataTransfer.files[0];if(file&&file.type==='application/pdf')handlePDFFile(file);else showModal('Erreur','Veuillez déposer un fichier PDF.');});
+
+function logMsg(text,cls=''){const log=document.getElementById('ipLog');log.innerHTML+=`<div class="${cls}">${text}</div>`;log.scrollTop=log.scrollHeight;}
+function setProgress(pct,status){document.getElementById('ipBarFill').style.width=pct+'%';document.getElementById('ipStatus').textContent=status;}
+
+async function handlePDFFile(file){
+  if(!file)return;
+  if(file.type!=='application/pdf'){showModal('Format invalide','Seuls les fichiers PDF sont acceptés.');return;}
+  const progressEl=document.getElementById('importProgress');
+  progressEl.classList.add('active');
+  document.getElementById('ipLog').innerHTML='';
+  document.getElementById('ipSpinner').textContent='⏳';
+  document.getElementById('ipTitleText').textContent='Analyse du PDF en cours…';
+  setProgress(5,'Chargement du fichier…');
+  logMsg(`📁 Fichier : ${file.name} (${(file.size/1024).toFixed(0)} Ko)`);
+  try{
+    const arrayBuffer=await file.arrayBuffer();
+    setProgress(15,'Décodage PDF…');
+    logMsg('📖 Décodage du document PDF…');
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    logMsg(`<span class="log-ok">✓ PDF chargé : ${pdf.numPages} page(s)</span>`);
+    setProgress(25,'Extraction du texte…');
+    const allLines=[];
+    for(let p=1;p<=pdf.numPages;p++){
+      setProgress(25+Math.round(p/pdf.numPages*40),`Extraction page ${p}/${pdf.numPages}…`);
+      const page=await pdf.getPage(p);
+      const tc=await page.getTextContent();
+      const items=tc.items.filter(it=>it.str.trim());
+      items.sort((a,b)=>{const ay=Math.round(a.transform[5]),by=Math.round(b.transform[5]);if(Math.abs(ay-by)>3)return by-ay;return a.transform[4]-b.transform[4];});
+      let currentY=null,currentLine=[];
+      for(const item of items){const y=Math.round(item.transform[5]);if(currentY!==null&&Math.abs(y-currentY)>3){allLines.push(currentLine.join(' '));currentLine=[];}currentLine.push(item.str);currentY=y;}
+      if(currentLine.length)allLines.push(currentLine.join(' '));
+      logMsg(`  Page ${p} : ${items.length} éléments texte`);
+    }
+    setProgress(70,'Analyse sémantique CECB+…');
+    logMsg(`📝 Total : ${allLines.length} lignes extraites`);
+    logMsg('🔍 Lancement de l\'analyse sémantique…');
+    const extracted=parseCECBPlus(allLines);
+    const foundCount=Object.values(extracted).filter(v=>v.value!==null&&v.value!=='').length;
+    const totalFields=Object.keys(extracted).length;
+    setProgress(95,'Préparation de la revue…');
+    logMsg(`<span class="log-ok">✓ Extraction terminée : ${foundCount}/${totalFields} champs identifiés</span>`);
+    setProgress(100,'Terminé');
+    document.getElementById('ipSpinner').textContent='✅';
+    document.getElementById('ipTitleText').textContent='Extraction terminée';
+    setTimeout(()=>showReview(extracted),500);
+  }catch(err){
+    setProgress(100,'Erreur');
+    document.getElementById('ipSpinner').textContent='❌';
+    document.getElementById('ipTitleText').textContent='Erreur lors de l\'analyse';
+    logMsg(`<span class="log-err">✗ Erreur : ${err.message}</span>`);
+  }
+}
+
+function parseCECBPlus(lines){
+  const fullText=lines.join('\n');
+  function parseSwissNum(s){if(!s)return null;s=s.replace(/[''\s]/g,'').replace(',','.');const n=parseFloat(s);return isNaN(n)?null:n;}
+  function findNear(patterns,opts={}){const{numeric=false,after=true,maxDist=3}=opts;for(const pat of patterns){for(let i=0;i<lines.length;i++){const line=lines[i];const m=line.match(pat);if(m){if(m[1]!==undefined){const v=numeric?parseSwissNum(m[1]):m[1].trim();if(v!==null&&v!=='')return v;}if(after){const rest=line.slice(m.index+m[0].length);if(numeric){const nm=rest.match(/[\d][''\d\s]*[\d]*[.,]?\d*/);if(nm){const v=parseSwissNum(nm[0]);if(v!==null)return v;}}else{const t=rest.replace(/^[\s:=]+/,'').trim();if(t)return t;}}for(let j=1;j<=maxDist&&i+j<lines.length;j++){const nl=lines[i+j].trim();if(numeric){const nm=nl.match(/^[\d][''\d\s]*[\d]*[.,]?\d*/);if(nm){const v=parseSwissNum(nm[0]);if(v!==null)return v;}}else if(nl&&!nl.match(/^[A-Z]{2,}/)){return nl;}}}}}return null;}
+  function findVariantSections(){const sections=[];const varPats=[/variante\s*(\d|[ABC])/i,/scénario\s*(\d|[ABC])/i,/paquet\s*(?:de\s*)?mesures?\s*(\d|[ABC])/i];for(let i=0;i<lines.length;i++){for(const pat of varPats){const m=lines[i].match(pat);if(m){let idx=m[1];if(idx==='1'||idx.toUpperCase()==='A')idx='A';else if(idx==='2'||idx.toUpperCase()==='B')idx='B';else if(idx==='3'||idx.toUpperCase()==='C')idx='C';sections.push({variant:idx,startLine:i,label:lines[i].trim()});break;}}}for(let i=0;i<sections.length;i++){sections[i].endLine=i+1<sections.length?sections[i+1].startLine:lines.length;}return sections;}
+  function extractFromRange(start,end){const rl=lines.slice(start,end);function findR(pats,num=false){for(const pat of pats){for(let i=0;i<rl.length;i++){const m=rl[i].match(pat);if(m){if(m[1]!==undefined){const v=num?parseSwissNum(m[1]):m[1].trim();if(v!==null&&v!=='')return v;}const rest=rl[i].slice(m.index+m[0].length);if(num){const nm=rest.match(/[\d][''\d\s]*[\d]*[.,]?\d*/);if(nm){const v=parseSwissNum(nm[0]);if(v!==null)return v;}}else{const t=rest.replace(/^[\s:=]+/,'').trim();if(t)return t;}for(let j=1;j<=2&&i+j<rl.length;j++){const nl=rl[i+j].trim();if(num){const nm=nl.match(/^[\d][''\d\s]*[\d]*[.,]?\d*/);if(nm){const v=parseSwissNum(nm[0]);if(v!==null)return v;}}}}}}return null;}
+  return{qh:findR([/Qh\s*\/\s*Qh[,.]?li\s*[:\s=]*(\d+[.,]?\d*)/i,/Qh\s*[:\s=]*(\d+[.,]?\d*)\s*%/i],true),ehwlk:findR([/EHWLK\s*[:\s=]*(\d+[.,]?\d*)\s*%/i],true),idc:findR([/IDC\s*[:\s=]*(\d+[''.\d]*)/i],true),co2:findR([/CO\s*2?\s*[:\s=]*(\d+[.,]?\d*)\s*kg/i],true),cost:findR([/co[uû]t\s*(?:total)?\s*[:\s=]*(?:CHF\s*)?(\d+[''.\d\s]*)/i,/investissement\s*[:\s=]*(?:CHF\s*)?(\d+[''.\d\s]*)/i],true),sub:findR([/subvention\s*[:\s=]*(?:CHF\s*)?(\d+[''.\d\s]*)/i],true),agent:findR([/agent\s*[ée]nerg[ée]tique\s*[:\s=]*(.+)/i,/chauffage\s*[:\s=]*(.+)/i]),standard:findR([/standard\s*[:\s=]*(.+)/i,/(HPE|THPE|Minergie)/i]),};}
+
+  const result={};
+  const egid=findNear([/EGID\s*[:\s#=]*(\d{5,9})/i],{numeric:false});
+  result.egid={value:egid,label:'N° EGID',section:'Identification',target:'egid',confidence:egid?'high':'low'};
+  let adresse=findNear([/adresse\s*[:\s=]*(.+)/i],{numeric:false});
+  if(!adresse){for(const line of lines){const am=line.match(/((?:rue|avenue|chemin|route|boulevard|place|quai)\s+[^,\n]+)/i);if(am){adresse=am[1].trim();break;}}}
+  result.adresse={value:adresse,label:'Adresse',section:'Identification',target:'adresse',confidence:adresse?'high':'low'};
+  let commune=findNear([/NPA\s*[:\s=]*(\d{4})\s*(.+)/i,/commune\s*[:\s=]*(.+)/i],{numeric:false});
+  if(!commune){for(const line of lines){const cm=line.match(/(\d{4})\s+(Gen[eè]ve|Carouge|Lancy|Meyrin|Vernier|Onex|Pregny|Chambésy|Bernex)/i);if(cm){commune=cm[0].trim();break;}}}
+  result.commune={value:commune,label:'NPA / Commune',section:'Identification',target:'commune',confidence:commune?'medium':'low'};
+  const annee=findNear([/ann[ée]e\s*(?:de\s*)?construction\s*[:\s=]*(\d{4})/i,/constru(?:it|ction)\s*(?:en\s*)?[:\s=]*(\d{4})/i],{numeric:true});
+  result.anneConst={value:annee,label:'Année de construction',section:'Identification',target:'anneConst',confidence:annee?'high':'low'};
+  const sre=findNear([/SRE\s*[:\s=]*(\d+[''.\d]*)\s*m/i,/surface\s*(?:de\s*)?r[ée]f[ée]rence\s*[:\s=]*(\d+[''.\d]*)/i],{numeric:true});
+  result.sreCecb={value:sre,label:'SRE [m²]',section:'Identification',target:'sreCecb',confidence:sre?'high':'low'};
+  const idcExist=findNear([/IDC\s*(?:actuel|existant|moyen)?\s*[:\s=]*(\d+[''.\d]*)\s*MJ/i],{numeric:true});
+  result.idcCecb={value:idcExist,label:'IDC existant [MJ/(m²·an)]',section:'Identification',target:'idcCecb',confidence:idcExist?'high':'low'};
+  const co2Exist=findNear([/CO\s*2?\s*[:\s=]*(\d+[.,]?\d*)\s*kg/i],{numeric:true});
+  result.emissionsCO2={value:co2Exist,label:'CO₂ existant [kg/(m²·an)]',section:'Identification',target:'emissionsCO2',confidence:co2Exist?'high':'low'};
+  const agentAct=findNear([/agent\s*[ée]nerg[ée]tique\s*(?:actuel)?\s*[:\s=]*(.+)/i,/chauffage\s*(?:actuel)?\s*[:\s=]*(.+)/i],{numeric:false});
+  result.agentActuel={value:agentAct,label:'Agent énergétique actuel',section:'Identification',target:'agentActuel',confidence:agentAct?'medium':'low'};
+  result.exist_idc={value:idcExist,label:'IDC existant (variantes)',section:'Variantes — État existant',target:'exist_idc',confidence:idcExist?'high':'low'};
+  result.exist_co2={value:co2Exist,label:'CO₂ existant (variantes)',section:'Variantes — État existant',target:'exist_co2',confidence:co2Exist?'high':'low'};
+  result.exist_agent={value:agentAct,label:'Agent actuel (variantes)',section:'Variantes — État existant',target:'exist_agent',confidence:agentAct?'medium':'low'};
+  let batNom=findNear([/nom\s*(?:du\s*)?b[aâ]timent\s*[:\s=]*(.+)/i,/objet\s*[:\s=]*(.+)/i],{numeric:false});
+  result.batNom={value:batNom,label:'Nom du bâtiment',section:'Identification',target:'batNom',confidence:batNom?'medium':'low'};
+
+  const varSections=findVariantSections();
+  logMsg(`🔎 Sections variantes détectées : ${varSections.length}`);
+  const varLetters=['A','B','C'];
+  for(let vi=0;vi<3;vi++){const vl=varLetters[vi];const sec=varSections.find(s=>s.variant===vl);if(sec){const ext=extractFromRange(sec.startLine,sec.endLine);const fields={[`v${vl}_qh`]:{v:ext.qh,l:`Var. ${vl} — Qh/Qh,li [%]`},[`v${vl}_ehwlk`]:{v:ext.ehwlk,l:`Var. ${vl} — EHWLK [%]`},[`v${vl}_idc`]:{v:ext.idc,l:`Var. ${vl} — IDC`},[`v${vl}_co2`]:{v:ext.co2,l:`Var. ${vl} — CO₂`},[`v${vl}_cost`]:{v:ext.cost,l:`Var. ${vl} — Coût`},[`v${vl}_sub`]:{v:ext.sub,l:`Var. ${vl} — Subventions`},[`v${vl}_agent`]:{v:ext.agent,l:`Var. ${vl} — Agent`},[`v${vl}_standard`]:{v:ext.standard,l:`Var. ${vl} — Standard`},};for(const[key,data] of Object.entries(fields)){result[key]={value:data.v,label:data.l,section:`Variante ${vl}`,target:key,confidence:data.v!==null?'medium':'low'};}logMsg(`<span class="log-ok">  ✓ Variante ${vl} : ${Object.values(fields).filter(f=>f.v!==null).length} valeurs</span>`);}else{for(const suf of['qh','ehwlk','idc','co2','cost','sub','agent','standard']){result[`v${vl}_${suf}`]={value:null,label:`Var. ${vl} — ${suf}`,section:`Variante ${vl}`,target:`v${vl}_${suf}`,confidence:'low'};}}}
+  return result;
+}
+
+// ═══════════════════════════════════════════
+// REVIEW UI
+// ═══════════════════════════════════════════
+let extractedData={};
+function showReview(data){
+  extractedData=data;const body=document.getElementById('reviewBody');const sections={};
+  for(const[key,item] of Object.entries(data)){const sec=item.section||'Autre';if(!sections[sec])sections[sec]=[];sections[sec].push({key,...item});}
+  let html='',foundTotal=0,missingTotal=0;
+  for(const[secName,items] of Object.entries(sections)){const foundInSec=items.filter(i=>i.value!==null&&i.value!=='').length;html+=`<div class="review-section"><div class="review-section-header">${secName} <span style="margin-left:auto;font-size:11px;color:var(--gray-400)">${foundInSec}/${items.length}</span></div><div class="review-items">`;
+  for(const item of items){const hasValue=item.value!==null&&item.value!=='';if(hasValue)foundTotal++;else missingTotal++;const confClass=item.confidence==='high'?'ri-conf-high':item.confidence==='medium'?'ri-conf-medium':'ri-conf-low';const confLabel=item.confidence==='high'?'Fiable':item.confidence==='medium'?'Probable':'Incertain';html+=`<div class="review-item"><div class="ri-check"><input type="checkbox" data-key="${item.key}" ${hasValue?'checked':''}${!hasValue?' disabled':''}></div><div class="ri-field"><div class="ri-label">${item.label}</div><div class="ri-value">${hasValue?formatDisplayValue(item.value):'<span style="color:var(--gray-400)">— Non trouvé —</span>'}</div></div>${hasValue?`<div class="ri-confidence"><span class="${confClass}">${confLabel}</span></div>`:''}</div>`;}
+  html+=`</div></div>`;}
+  body.innerHTML=html;document.getElementById('rpFound').textContent=foundTotal+' trouvés';document.getElementById('rpMissing').textContent=missingTotal+' absents';document.getElementById('reviewOverlay').classList.add('active');
+}
+function formatDisplayValue(v){if(typeof v==='number'){if(v>9999)return v.toLocaleString('fr-CH');return v.toString();}return String(v);}
+function closeReview(){document.getElementById('reviewOverlay').classList.remove('active');}
+function toggleSelectAll(){const checks=document.querySelectorAll('#reviewBody input[type="checkbox"]:not(:disabled)');const allChecked=Array.from(checks).every(c=>c.checked);checks.forEach(c=>c.checked=!allChecked);}
+function applyExtracted(){
+  const checks=document.querySelectorAll('#reviewBody input[type="checkbox"]:checked');let applied=0;
+  checks.forEach(cb=>{const key=cb.dataset.key;const item=extractedData[key];if(!item||item.value===null||item.value==='')return;const target=document.getElementById(item.target);if(target){target.value=item.value;target.style.transition='background 0.3s';target.style.background='#d1fae5';setTimeout(()=>{target.style.background='';},1500);applied++;}});
+  closeReview();updateSidebar();updateObjectifs();updateScoring();updateProgress();
+  showModal('Import réussi',`${applied} champ(s) appliqué(s) au formulaire.`);
+  ['sectionA','sectionD','sectionE'].forEach(id=>{const el=document.getElementById(id);if(el&&!el.classList.contains('open'))el.classList.add('open');});
+}
+
+updateProgress();
+</script>
+
+
+</body></html>
